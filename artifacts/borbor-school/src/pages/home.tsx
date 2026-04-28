@@ -1,22 +1,23 @@
-import { useEffect } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowRight, BookOpen, Users, Trophy, ChevronRight } from "lucide-react";
 import { useSchoolData } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Seo } from "@/components/seo";
 
 export default function Home() {
   const { schoolInfo, news, staff } = useSchoolData();
-
-  useEffect(() => {
-    document.title = `${schoolInfo.name} | Home`;
-  }, [schoolInfo.name]);
 
   const whatsappLink = `https://wa.me/${schoolInfo?.whatsapp?.replace(/\D/g, '')}?text=Hello,%20I%20am%20interested%20in%20enrolling%20my%20child%20at%20DASBMSE.`;
 
   return (
     <div className="flex flex-col w-full">
+      <Seo
+        title={`${schoolInfo.name} — DR. ABRAHAM S. BORBOR SCHOOL, Mount Barclay, Liberia`}
+        description={`${schoolInfo.name} (DASBMSE). ${schoolInfo.slogan} A Christian primary, junior high, and senior high school in Mount Barclay, Lower Johnsonville, Monrovia, Liberia.`}
+        path="/"
+      />
       {/* Hero Section */}
       <section className="relative w-full overflow-hidden bg-gradient-to-b from-primary/5 to-background pt-12 pb-24 md:pt-24 md:pb-32">
         <div className="container mx-auto px-4 md:px-6 relative z-10 flex flex-col items-center text-center">

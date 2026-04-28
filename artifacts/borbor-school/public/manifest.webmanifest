@@ -1,20 +1,28 @@
 {
   "name": "Dr. Abraham S. Borbor Memorial School Of Excellence",
   "short_name": "DASBMSE",
+  "description": "DR. ABRAHAM S. BORBOR SCHOOL — a primary, junior high, and senior high school in Mount Barclay, Lower Johnsonville, Monrovia, Liberia. We Don't Just Teach, We Inspire.",
+  "lang": "en-LR",
+  "dir": "ltr",
+  "categories": ["education", "school"],
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#f8f6f0",
   "theme_color": "#12306b",
   "icons": [
     {
       "src": "/images/school-logo.jpg",
       "sizes": "192x192",
-      "type": "image/jpeg"
+      "type": "image/jpeg",
+      "purpose": "any maskable"
     },
     {
       "src": "/images/school-logo.jpg",
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/jpeg",
+      "purpose": "any maskable"
     }
   ]
 }

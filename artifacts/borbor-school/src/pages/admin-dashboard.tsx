@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Save, Plus, Trash2, Edit2, KeyRound, Upload, Users, Image as ImageIcon, Newspaper, Info, MessageSquare } from "lucide-react";
-import { useSchoolData, SchoolInfo, Activity, News, StaffMember, GalleryImage } from "@/lib/data";
+import { LogOut, Save, Plus, Trash2, Edit2, KeyRound, Upload, Users, Image as ImageIcon, Newspaper, Info, MessageSquare, Database, BarChart3, Download as DownloadIcon, RefreshCcw } from "lucide-react";
+import { useSchoolData, SchoolInfo, Activity, News, StaffMember, GalleryImage, VisitStats } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,7 +24,9 @@ export default function AdminDashboard() {
     staff, setStaff,
     gallery, setGallery,
     submissions, deleteSubmission,
-    changePassword, isLoaded
+    changePassword, isLoaded,
+    exportBackup, importBackup, resetAllData,
+    getStats
   } = useSchoolData();
 
   useEffect(() => {
@@ -73,6 +75,8 @@ export default function AdminDashboard() {
                 { val: "gallery", label: "Gallery", icon: ImageIcon },
                 { val: "staff", label: "Staff", icon: Users },
                 { val: "messages", label: "Messages", icon: MessageSquare },
+                { val: "stats", label: "Visit Stats", icon: BarChart3 },
+                { val: "backup", label: "Backup", icon: Database },
                 { val: "security", label: "Security", icon: KeyRound },
               ].map(tab => (
                 <TabsTrigger 
@@ -167,6 +171,14 @@ export default function AdminDashboard() {
 
             <TabsContent value="messages" className="mt-0 outline-none">
               <SubmissionsViewer submissions={submissions} onDelete={deleteSubmission} />
+            </TabsContent>
+
+            <TabsContent value="stats" className="mt-0 outline-none">
+              <VisitStatsViewer getStats={getStats} />
+            </TabsContent>
+
+            <TabsContent value="backup" className="mt-0 outline-none">
+              <BackupManager exportBackup={exportBackup} importBackup={importBackup} resetAllData={resetAllData} />
             </TabsContent>
 
             <TabsContent value="security" className="mt-0 outline-none">
@@ -647,5 +659,200 @@ function SecurityManager({ onChangePassword }: { onChangePassword: (o: string, n
         </form>
       </CardContent>
     </Card>
+  );
+}
+function VisitStatsViewer({ getStats }: { getStats: () => VisitStats }) {
+  const [stats, setStats] = useState<VisitStats>(() => getStats());
+
+  useEffect(() => {
+    setStats(getStats());
+    const id = setInterval(() => setStats(getStats()), 5000);
+    return () => clearInterval(id);
+  }, [getStats]);
+
+  const refresh = () => {
+    setStats(getStats());
+    toast.success("Stats refreshed");
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl py-4 flex flex-row items-center justify-between">
+          <CardTitle className="font-serif text-2xl text-primary m-0">Visit Statistics</CardTitle>
+          <Button variant="outline" size="sm" onClick={refresh} className="gap-2">
+            <RefreshCcw className="w-4 h-4" /> Refresh
+          </Button>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard label="Total Visits" value={stats.totalVisits} />
+            <StatCard label="Active Days" value={stats.uniqueDays} />
+            <StatCard label="Today" value={stats.last7Days[stats.last7Days.length - 1]?.count ?? 0} />
+            <StatCard label="Last 7 Days" value={stats.last7Days.reduce((s, d) => s + d.count, 0)} />
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            {stats.firstVisit && <>First visit: {new Date(stats.firstVisit).toLocaleString()} · </>}
+            {stats.lastVisit && <>Last visit: {new Date(stats.lastVisit).toLocaleString()}</>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl py-4">
+          <CardTitle className="font-serif text-xl text-primary m-0">Last 7 Days</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="flex items-end gap-2 h-32">
+            {stats.last7Days.map(d => {
+              const max = Math.max(1, ...stats.last7Days.map(x => x.count));
+              const h = Math.round((d.count / max) * 100);
+              return (
+                <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full bg-primary/20 rounded-t-md relative" style={{ height: `${h}%`, minHeight: d.count > 0 ? '8px' : '2px' }}>
+                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs font-semibold text-primary">{d.count || ''}</div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">{d.date.slice(5)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl py-4">
+          <CardTitle className="font-serif text-xl text-primary m-0">Top Pages</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          {stats.perPage.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No visits recorded yet.</p>
+          ) : (
+            <ul className="divide-y divide-border/50">
+              {stats.perPage.slice(0, 10).map((p) => (
+                <li key={p.path} className="py-3 flex items-center justify-between gap-4">
+                  <span className="font-mono text-sm truncate">{p.path}</span>
+                  <span className="text-sm font-semibold text-primary shrink-0">{p.count} {p.count === 1 ? 'visit' : 'visits'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string, value: number }) {
+  return (
+    <div className="bg-muted/30 rounded-xl p-4 border border-border/50 text-center">
+      <div className="text-3xl font-bold text-primary">{value.toLocaleString()}</div>
+      <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wide">{label}</div>
+    </div>
+  );
+}
+
+function BackupManager({
+  exportBackup,
+  importBackup,
+  resetAllData,
+}: {
+  exportBackup: () => string;
+  importBackup: (json: string) => boolean;
+  resetAllData: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const handleExport = () => {
+    try {
+      const json = exportBackup();
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").split("T")[0];
+      a.href = url;
+      a.download = `dasbmse-backup-${ts}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Backup downloaded");
+    } catch (e) {
+      toast.error("Export failed");
+    }
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const ok = importBackup(String(reader.result || ""));
+      if (ok) {
+        toast.success("Backup restored. Reloading...");
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        toast.error("Invalid backup file");
+      }
+    };
+    reader.readAsText(file);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handleReset = () => {
+    if (!confirmReset) {
+      setConfirmReset(true);
+      setTimeout(() => setConfirmReset(false), 5000);
+      return;
+    }
+    resetAllData();
+    toast.success("All data reset to defaults. Reloading...");
+    setTimeout(() => window.location.reload(), 800);
+  };
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl py-4">
+          <CardTitle className="font-serif text-2xl text-primary m-0">Backup & Restore</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Export a full backup of school info, activities, news, gallery, staff, and submissions. Import a previously saved backup to restore data.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button onClick={handleExport} className="gap-2">
+              <DownloadIcon className="w-4 h-4" /> Export Backup (.json)
+            </Button>
+            <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2">
+              <Upload className="w-4 h-4" /> Import Backup
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleImport}
+              className="hidden"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/40 shadow-sm">
+        <CardHeader className="bg-destructive/5 border-b border-destructive/30 rounded-t-xl py-4">
+          <CardTitle className="font-serif text-2xl text-destructive m-0">Danger Zone</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Reset every section back to default content. This cannot be undone — export a backup first.
+          </p>
+          <Button variant="destructive" onClick={handleReset} className="gap-2">
+            <Trash2 className="w-4 h-4" />
+            {confirmReset ? "Click again to confirm reset" : "Reset All Data"}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

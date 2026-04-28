@@ -1,16 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Download } from "lucide-react";
 import { useSchoolData } from "@/lib/data";
 import { Button } from "@/components/ui/button";
+import { Seo } from "@/components/seo";
 
 export default function About() {
   const { schoolInfo } = useSchoolData();
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-
-  useEffect(() => {
-    document.title = `${schoolInfo.name} | About`;
-  }, [schoolInfo.name]);
 
   const generateBrochure = async () => {
     setIsGeneratingPdf(true);
@@ -100,6 +97,11 @@ export default function About() {
 
   return (
     <div className="flex flex-col w-full pb-20">
+      <Seo
+        title={`About ${schoolInfo.name} — DASBMSE | Mount Barclay, Liberia`}
+        description={`Learn about Dr. Abraham S. Borbor Memorial School Of Excellence (DASBMSE) — our history since ${schoolInfo.established}, mission, vision, and faith-grounded approach to education in Mount Barclay, Liberia.`}
+        path="/about"
+      />
       {/* Header */}
       <section className="bg-primary pt-20 pb-24 text-center px-4">
         <motion.div

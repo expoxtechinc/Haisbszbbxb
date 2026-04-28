@@ -4,14 +4,11 @@ import { Calendar, Image as ImageIcon, Newspaper, X, ZoomIn } from "lucide-react
 import { useSchoolData } from "@/lib/data";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Seo } from "@/components/seo";
 
 export default function Activities() {
   const { schoolInfo, activities, news, gallery } = useSchoolData();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-
-  useEffect(() => {
-    document.title = `${schoolInfo.name} | Activities & News`;
-  }, [schoolInfo.name]);
 
   // Handle keyboard navigation for lightbox
   useEffect(() => {
@@ -26,6 +23,11 @@ export default function Activities() {
 
   return (
     <div className="flex flex-col w-full pb-20">
+      <Seo
+        title={`Activities, News & Gallery — ${schoolInfo.name} (DASBMSE)`}
+        description={`Latest news, events, photo gallery and student activities at Dr. Abraham S. Borbor Memorial School Of Excellence (DASBMSE) in Mount Barclay, Liberia.`}
+        path="/activities"
+      />
       <section className="bg-primary pt-20 pb-16 text-center px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

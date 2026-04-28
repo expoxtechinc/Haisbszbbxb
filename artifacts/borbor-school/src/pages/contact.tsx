@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Seo } from "@/components/seo";
 
 const contactSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -20,10 +21,6 @@ const contactSchema = z.object({
 export default function Contact() {
   const { schoolInfo, addSubmission } = useSchoolData();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    document.title = `${schoolInfo.name} | Contact Us`;
-  }, [schoolInfo.name]);
 
   const form = useForm<z.infer<typeof contactSchema>>({
     resolver: zodResolver(contactSchema),
@@ -48,6 +45,11 @@ export default function Contact() {
 
   return (
     <div className="flex flex-col w-full pb-20">
+      <Seo
+        title={`Contact Us — ${schoolInfo.name} (DASBMSE) | ${schoolInfo.address}`}
+        description={`Contact Dr. Abraham S. Borbor Memorial School Of Excellence. Phone, email, WhatsApp, Facebook, and address in Mount Barclay, Lower Johnsonville, Monrovia, Liberia.`}
+        path="/contact"
+      />
       <section className="bg-primary pt-20 pb-24 text-center px-4 relative">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
         <motion.div

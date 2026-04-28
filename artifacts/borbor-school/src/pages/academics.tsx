@@ -1,16 +1,12 @@
-import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { BookOpen, Target, Microscope, Globe } from "lucide-react";
 import { useSchoolData } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Seo } from "@/components/seo";
 
 export default function Academics() {
   const { schoolInfo } = useSchoolData();
-
-  useEffect(() => {
-    document.title = `${schoolInfo.name} | Academics`;
-  }, [schoolInfo.name]);
 
   const programs = [
     {
@@ -44,6 +40,11 @@ export default function Academics() {
 
   return (
     <div className="flex flex-col w-full pb-20">
+      <Seo
+        title={`Academics — ${schoolInfo.name} (DASBMSE) | Mount Barclay, Liberia`}
+        description={`Explore academic programs at Dr. Abraham S. Borbor Memorial School Of Excellence: Primary School, Junior High, and Senior High in Mount Barclay, Lower Johnsonville, Liberia.`}
+        path="/academics"
+      />
       <section className="bg-primary pt-20 pb-20 text-center px-4 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
         <motion.div

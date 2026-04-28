@@ -113,6 +113,20 @@ type SchoolDataContextType = {
   logout: () => void;
   changePassword: (oldPw: string, newPw: string) => boolean;
   isLoaded: boolean;
+  exportBackup: () => string;
+  importBackup: (json: string) => boolean;
+  resetAllData: () => void;
+  recordVisit: (path: string) => void;
+  getStats: () => VisitStats;
+};
+
+export type VisitStats = {
+  totalVisits: number;
+  uniqueDays: number;
+  perPage: { path: string; count: number }[];
+  last7Days: { date: string; count: number }[];
+  firstVisit: string | null;
+  lastVisit: string | null;
 };
 
 const SchoolDataContext = createContext<SchoolDataContextType | null>(null);
@@ -223,6 +237,103 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
     toast.info("Logged out successfully");
   };
 
+  const STORAGE_KEYS = ["schoolInfo", "activities", "news", "gallery", "staff", "submissions"];
+
+  const exportBackup = (): string => {
+    const data: Record<string, unknown> = {
+      _meta: {
+        app: "DASBMSE",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+      },
+    };
+    for (const key of STORAGE_KEYS) {
+      const raw = localStorage.getItem(`dasbmse:${key}`);
+      data[key] = raw ? JSON.parse(raw) : null;
+    }
+    return JSON.stringify(data, null, 2);
+  };
+
+  const importBackup = (json: string): boolean => {
+    try {
+      const data = JSON.parse(json);
+      if (!data || typeof data !== "object") throw new Error("Invalid file");
+      for (const key of STORAGE_KEYS) {
+        if (data[key] !== undefined && data[key] !== null) {
+          localStorage.setItem(`dasbmse:${key}`, JSON.stringify(data[key]));
+        }
+      }
+      if (data.schoolInfo) setSchoolInfoState(data.schoolInfo);
+      if (data.activities) setActivitiesState(data.activities);
+      if (data.news) setNewsState(data.news);
+      if (data.gallery) setGalleryState(data.gallery);
+      if (data.staff) setStaffState(data.staff);
+      if (data.submissions) setSubmissionsState(data.submissions);
+      toast.success("Backup restored successfully");
+      return true;
+    } catch (e) {
+      toast.error("Could not import backup: " + (e as Error).message);
+      return false;
+    }
+  };
+
+  const resetAllData = () => {
+    for (const key of STORAGE_KEYS) localStorage.removeItem(`dasbmse:${key}`);
+    localStorage.removeItem("dasbmse:visits");
+    setSchoolInfoState(defaultSchoolInfo);
+    setActivitiesState(defaultActivities);
+    setNewsState(defaultNews);
+    setGalleryState(defaultGallery);
+    setStaffState(defaultStaff);
+    setSubmissionsState([]);
+    toast.success("All content reset to defaults");
+  };
+
+  const recordVisit = (path: string) => {
+    if (typeof window === "undefined") return;
+    if (path.startsWith("/admin")) return;
+    try {
+      const raw = localStorage.getItem("dasbmse:visits");
+      const visits: { path: string; at: string }[] = raw ? JSON.parse(raw) : [];
+      visits.push({ path, at: new Date().toISOString() });
+      const trimmed = visits.slice(-2000);
+      localStorage.setItem("dasbmse:visits", JSON.stringify(trimmed));
+    } catch {
+      // ignore localStorage errors (private mode, quota)
+    }
+  };
+
+  const getStats = (): VisitStats => {
+    let visits: { path: string; at: string }[] = [];
+    try {
+      const raw = localStorage.getItem("dasbmse:visits");
+      if (raw) visits = JSON.parse(raw);
+    } catch { /* noop */ }
+    const perPageMap = new Map<string, number>();
+    const dayMap = new Map<string, number>();
+    for (const v of visits) {
+      perPageMap.set(v.path, (perPageMap.get(v.path) || 0) + 1);
+      const day = v.at.slice(0, 10);
+      dayMap.set(day, (dayMap.get(day) || 0) + 1);
+    }
+    const last7: { date: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      last7.push({ date: key, count: dayMap.get(key) || 0 });
+    }
+    return {
+      totalVisits: visits.length,
+      uniqueDays: dayMap.size,
+      perPage: Array.from(perPageMap.entries())
+        .map(([path, count]) => ({ path, count }))
+        .sort((a, b) => b.count - a.count),
+      last7Days: last7,
+      firstVisit: visits[0]?.at ?? null,
+      lastVisit: visits[visits.length - 1]?.at ?? null,
+    };
+  };
+
   const changePassword = (oldPw: string, newPw: string) => {
     const credsStr = localStorage.getItem("dasbmse:credentials");
     if (credsStr) {
@@ -247,7 +358,9 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
       staff, setStaff,
       submissions, addSubmission, deleteSubmission,
       isAuthenticated, login, logout, changePassword,
-      isLoaded
+      isLoaded,
+      exportBackup, importBackup, resetAllData,
+      recordVisit, getStats
     }}>
       {children}
     </SchoolDataContext.Provider>

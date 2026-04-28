@@ -1,8 +1,9 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { useEffect } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SchoolDataProvider } from "@/lib/data";
+import { SchoolDataProvider, useSchoolData } from "@/lib/data";
 
 import { Layout } from "@/components/layout";
 import Home from "@/pages/home";
@@ -17,9 +18,19 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
+function VisitTracker() {
+  const [location] = useLocation();
+  const { recordVisit, isLoaded } = useSchoolData();
+  useEffect(() => {
+    if (isLoaded) recordVisit(location);
+  }, [location, isLoaded, recordVisit]);
+  return null;
+}
+
 function Router() {
   return (
     <Layout>
+      <VisitTracker />
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/about" component={About} />
