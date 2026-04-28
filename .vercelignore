@@ -1,0 +1,8 @@
+.local
+.cache
+.replit
+replit.nix
+artifacts/api-server
+artifacts/mockup-sandbox
+attached_assets
+*.log

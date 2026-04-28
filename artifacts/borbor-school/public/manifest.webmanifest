@@ -1,0 +1,20 @@
+{
+  "name": "Dr. Abraham S. Borbor Memorial School Of Excellence",
+  "short_name": "DASBMSE",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f6f0",
+  "theme_color": "#12306b",
+  "icons": [
+    {
+      "src": "/images/school-logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/images/school-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
