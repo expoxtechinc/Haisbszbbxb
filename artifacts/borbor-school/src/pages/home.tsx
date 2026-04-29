@@ -5,9 +5,12 @@ import { useSchoolData } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Seo } from "@/components/seo";
+import { HeroSlideshow } from "@/components/hero-slideshow";
+import { TestimonialsSection } from "@/components/testimonials-section";
+import { AchievementsSection } from "@/components/achievements-section";
 
 export default function Home() {
-  const { schoolInfo, news, staff } = useSchoolData();
+  const { schoolInfo, news, staff, testimonials, achievements, heroSlides } = useSchoolData();
 
   const whatsappLink = `https://wa.me/${schoolInfo?.whatsapp?.replace(/\D/g, '')}?text=Hello,%20I%20am%20interested%20in%20enrolling%20my%20child%20at%20DASBMSE.`;
 
@@ -69,6 +72,17 @@ export default function Home() {
               <Link href="/contact">Contact Us</Link>
             </Button>
           </motion.div>
+
+          {heroSlides.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.8 }}
+              className="w-full max-w-5xl mt-14"
+            >
+              <HeroSlideshow slides={heroSlides} />
+            </motion.div>
+          )}
         </div>
         
         {/* Decorative elements */}
@@ -270,6 +284,9 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      <AchievementsSection achievements={achievements} />
+      <TestimonialsSection testimonials={testimonials} />
     </div>
   );
 }

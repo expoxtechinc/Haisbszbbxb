@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Save, Plus, Trash2, Edit2, KeyRound, Upload, Users, Image as ImageIcon, Newspaper, Info, MessageSquare, Database, BarChart3, Download as DownloadIcon, RefreshCcw } from "lucide-react";
-import { useSchoolData, SchoolInfo, Activity, News, StaffMember, GalleryImage, VisitStats } from "@/lib/data";
+import { LogOut, Save, Plus, Trash2, Edit2, KeyRound, Upload, Users, Image as ImageIcon, Newspaper, Info, MessageSquare, Database, BarChart3, Download as DownloadIcon, RefreshCcw, Quote, Trophy, Sparkles } from "lucide-react";
+import { useSchoolData, SchoolInfo, Activity, News, StaffMember, GalleryImage, VisitStats, Testimonial, Achievement, HeroSlide, GalleryCategory } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +24,9 @@ export default function AdminDashboard() {
     staff, setStaff,
     gallery, setGallery,
     submissions, deleteSubmission,
+    testimonials, setTestimonials,
+    achievements, setAchievements,
+    heroSlides, setHeroSlides,
     changePassword, isLoaded,
     exportBackup, importBackup, resetAllData,
     getStats
@@ -70,9 +73,12 @@ export default function AdminDashboard() {
             <TabsList className="flex flex-col h-auto w-full bg-card border border-border/50 shadow-sm p-2 rounded-2xl gap-1">
               {[
                 { val: "info", label: "School Info", icon: Info },
+                { val: "hero", label: "Hero Slides", icon: Sparkles },
                 { val: "activities", label: "Activities", icon: CalendarIcon },
                 { val: "news", label: "News", icon: Newspaper },
                 { val: "gallery", label: "Gallery", icon: ImageIcon },
+                { val: "achievements", label: "Achievements", icon: Trophy },
+                { val: "testimonials", label: "Testimonials", icon: Quote },
                 { val: "staff", label: "Staff", icon: Users },
                 { val: "messages", label: "Messages", icon: MessageSquare },
                 { val: "stats", label: "Visit Stats", icon: BarChart3 },
@@ -163,6 +169,18 @@ export default function AdminDashboard() {
 
             <TabsContent value="gallery" className="mt-0 outline-none">
               <GalleryManager gallery={gallery} onSave={setGallery} />
+            </TabsContent>
+
+            <TabsContent value="hero" className="mt-0 outline-none">
+              <HeroSlidesManager slides={heroSlides} onSave={setHeroSlides} />
+            </TabsContent>
+
+            <TabsContent value="achievements" className="mt-0 outline-none">
+              <AchievementsManager achievements={achievements} onSave={setAchievements} />
+            </TabsContent>
+
+            <TabsContent value="testimonials" className="mt-0 outline-none">
+              <TestimonialsManager testimonials={testimonials} onSave={setTestimonials} />
             </TabsContent>
 
             <TabsContent value="staff" className="mt-0 outline-none">
@@ -362,8 +380,18 @@ function ItemsManager<T extends {id: string}>({
   );
 }
 
+const GALLERY_CATEGORY_OPTIONS: { value: Exclude<GalleryCategory, "all">; label: string }[] = [
+  { value: "campus", label: "Campus" },
+  { value: "events", label: "Events" },
+  { value: "sports", label: "Sports" },
+  { value: "academics", label: "Academics" },
+  { value: "graduation", label: "Graduation" },
+  { value: "community", label: "Community" },
+];
+
 function GalleryManager({ gallery, onSave }: { gallery: GalleryImage[], onSave: (g: GalleryImage[]) => void }) {
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadCategory, setUploadCategory] = useState<Exclude<GalleryCategory, "all">>("campus");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -382,6 +410,7 @@ function GalleryManager({ gallery, onSave }: { gallery: GalleryImage[], onSave: 
         id: Math.random().toString(36).substr(2, 9),
         dataUrl: reader.result as string,
         caption: file.name,
+        category: uploadCategory,
         uploadedAt: new Date().toISOString()
       };
       onSave([newImg, ...gallery]);
@@ -403,11 +432,29 @@ function GalleryManager({ gallery, onSave }: { gallery: GalleryImage[], onSave: 
     }
   };
 
+  const handleCategoryChange = (id: string, category: Exclude<GalleryCategory, "all">) => {
+    onSave(gallery.map(g => g.id === id ? { ...g, category } : g));
+  };
+
+  const handleCaptionChange = (id: string, caption: string) => {
+    onSave(gallery.map(g => g.id === id ? { ...g, caption } : g));
+  };
+
   return (
     <Card className="border-border/50 shadow-sm">
-      <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl flex flex-row items-center justify-between py-4">
+      <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl flex flex-row items-center justify-between py-4 gap-3 flex-wrap">
         <CardTitle className="font-serif text-2xl text-primary m-0">Manage Gallery</CardTitle>
-        <div>
+        <div className="flex items-center gap-2">
+          <select
+            value={uploadCategory}
+            onChange={(e) => setUploadCategory(e.target.value as Exclude<GalleryCategory, "all">)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            aria-label="Upload category"
+          >
+            {GALLERY_CATEGORY_OPTIONS.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
           <input type="file" accept="image/jpeg, image/png, image/webp" className="hidden" ref={fileInputRef} onChange={handleUpload} />
           <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm">
             <Upload className="w-4 h-4 mr-2" /> {isUploading ? "Uploading..." : "Upload Image"}
@@ -420,11 +467,125 @@ function GalleryManager({ gallery, onSave }: { gallery: GalleryImage[], onSave: 
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {gallery.map(img => (
-              <div key={img.id} className="relative group rounded-xl overflow-hidden aspect-square border shadow-sm">
-                <img src={img.dataUrl} alt={img.caption} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Button variant="destructive" size="sm" onClick={() => handleDelete(img.id)} className="translate-y-4 group-hover:translate-y-0 transition-transform">
-                    <Trash2 className="w-4 h-4 mr-2" /> Delete
+              <div key={img.id} className="relative group rounded-xl overflow-hidden border shadow-sm bg-background flex flex-col">
+                <div className="relative aspect-square">
+                  <img src={img.dataUrl} alt={img.caption} className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => handleDelete(img.id)}
+                    className="absolute top-2 right-2 p-1.5 bg-destructive/90 text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Delete image"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="p-2 flex flex-col gap-1">
+                  <Input
+                    value={img.caption}
+                    onChange={(e) => handleCaptionChange(img.id, e.target.value)}
+                    className="h-8 text-xs"
+                    placeholder="Caption"
+                  />
+                  <select
+                    value={img.category ?? "campus"}
+                    onChange={(e) => handleCategoryChange(img.id, e.target.value as Exclude<GalleryCategory, "all">)}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                    aria-label="Category"
+                  >
+                    {GALLERY_CATEGORY_OPTIONS.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function HeroSlidesManager({ slides, onSave }: { slides: HeroSlide[], onSave: (s: HeroSlide[]) => void }) {
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error("Image too large. Please keep under 1MB.");
+      return;
+    }
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const newSlide: HeroSlide = {
+        id: Math.random().toString(36).substr(2, 9),
+        imageDataUrl: reader.result as string,
+        headline: "New Slide",
+        subline: "",
+      };
+      onSave([...slides, newSlide]);
+      toast.success("Slide added");
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read image");
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const update = (id: string, patch: Partial<HeroSlide>) => {
+    onSave(slides.map(s => s.id === id ? { ...s, ...patch } : s));
+  };
+
+  const remove = (id: string) => {
+    if (confirm("Delete this slide?")) {
+      onSave(slides.filter(s => s.id !== id));
+    }
+  };
+
+  const move = (id: string, dir: -1 | 1) => {
+    const idx = slides.findIndex(s => s.id === id);
+    if (idx < 0) return;
+    const next = idx + dir;
+    if (next < 0 || next >= slides.length) return;
+    const copy = [...slides];
+    [copy[idx], copy[next]] = [copy[next], copy[idx]];
+    onSave(copy);
+  };
+
+  return (
+    <Card className="border-border/50 shadow-sm">
+      <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl flex flex-row items-center justify-between py-4">
+        <CardTitle className="font-serif text-2xl text-primary m-0">Hero Slideshow</CardTitle>
+        <div>
+          <input type="file" accept="image/jpeg, image/png, image/webp" className="hidden" ref={fileInputRef} onChange={handleUpload} />
+          <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} size="sm">
+            <Upload className="w-4 h-4 mr-2" /> {isUploading ? "Uploading..." : "Add Slide"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-4">
+        <p className="text-sm text-muted-foreground">Slides auto-rotate on the home page every ~5.5 seconds. Keep images under 1 MB and roughly 16:9 for best results.</p>
+        {slides.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg bg-background">No hero slides yet. Add one to start.</div>
+        ) : (
+          <div className="space-y-4">
+            {slides.map((slide, i) => (
+              <div key={slide.id} className="flex flex-col md:flex-row gap-4 p-3 border rounded-xl bg-background">
+                <img src={slide.imageDataUrl} alt={slide.headline} className="w-full md:w-48 h-32 object-cover rounded-lg shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Input value={slide.headline} onChange={(e) => update(slide.id, { headline: e.target.value })} placeholder="Headline" />
+                  <Input value={slide.subline ?? ""} onChange={(e) => update(slide.id, { subline: e.target.value })} placeholder="Optional subline" />
+                </div>
+                <div className="flex md:flex-col items-end gap-2">
+                  <Button size="icon" variant="outline" onClick={() => move(slide.id, -1)} disabled={i === 0} aria-label="Move up">↑</Button>
+                  <Button size="icon" variant="outline" onClick={() => move(slide.id, 1)} disabled={i === slides.length - 1} aria-label="Move down">↓</Button>
+                  <Button size="icon" variant="destructive" onClick={() => remove(slide.id)} aria-label="Delete">
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
@@ -432,6 +593,204 @@ function GalleryManager({ gallery, onSave }: { gallery: GalleryImage[], onSave: 
           </div>
         )}
       </CardContent>
+    </Card>
+  );
+}
+
+function AchievementsManager({ achievements, onSave }: { achievements: Achievement[], onSave: (a: Achievement[]) => void }) {
+  const [draft, setDraft] = useState<Achievement | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const openNew = () => {
+    setDraft({ id: Math.random().toString(36).substr(2, 9), title: "", description: "", year: new Date().getFullYear().toString(), icon: "trophy" });
+    setOpen(true);
+  };
+  const openEdit = (a: Achievement) => {
+    setDraft({ ...a });
+    setOpen(true);
+  };
+  const save = () => {
+    if (!draft) return;
+    if (!draft.title || !draft.description) { toast.error("Title and description are required"); return; }
+    const exists = achievements.some(a => a.id === draft.id);
+    onSave(exists ? achievements.map(a => a.id === draft.id ? draft : a) : [...achievements, draft]);
+    toast.success(exists ? "Achievement updated" : "Achievement added");
+    setOpen(false);
+  };
+  const remove = (id: string) => {
+    if (confirm("Delete this achievement?")) onSave(achievements.filter(a => a.id !== id));
+  };
+
+  return (
+    <Card className="border-border/50 shadow-sm">
+      <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl flex flex-row items-center justify-between py-4">
+        <CardTitle className="font-serif text-2xl text-primary m-0">Achievements</CardTitle>
+        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-2" /> Add</Button>
+      </CardHeader>
+      <CardContent className="pt-6">
+        {achievements.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg bg-background">No achievements yet.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {achievements.map(a => (
+              <div key={a.id} className="p-4 border rounded-xl bg-background flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Trophy className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold truncate">{a.title}</h4>
+                    <span className="text-xs px-2 py-0.5 bg-secondary/20 rounded-full">{a.year}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{a.description}</p>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => openEdit(a)} aria-label="Edit"><Edit2 className="w-4 h-4" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => remove(a.id)} aria-label="Delete"><Trash2 className="w-4 h-4" /></Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{achievements.some(a => a.id === draft?.id) ? "Edit" : "Add"} Achievement</DialogTitle>
+          </DialogHeader>
+          {draft && (
+            <div className="space-y-3">
+              <div className="space-y-1.5"><Label>Title</Label><Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Year</Label><Input value={draft.year} onChange={(e) => setDraft({ ...draft, year: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Description</Label><Textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} className="h-28" /></div>
+              <div className="space-y-1.5">
+                <Label>Icon</Label>
+                <select
+                  value={draft.icon ?? "trophy"}
+                  onChange={(e) => setDraft({ ...draft, icon: e.target.value as Achievement["icon"] })}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="trophy">Trophy</option>
+                  <option value="medal">Medal</option>
+                  <option value="award">Award</option>
+                  <option value="star">Star</option>
+                </select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={save}><Save className="w-4 h-4 mr-2" /> Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+function TestimonialsManager({ testimonials, onSave }: { testimonials: Testimonial[], onSave: (t: Testimonial[]) => void }) {
+  const [draft, setDraft] = useState<Testimonial | null>(null);
+  const [open, setOpen] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const openNew = () => {
+    setDraft({ id: Math.random().toString(36).substr(2, 9), authorName: "", authorRole: "", quote: "", rating: 5, createdAt: new Date().toISOString() });
+    setOpen(true);
+  };
+  const openEdit = (t: Testimonial) => {
+    setDraft({ ...t });
+    setOpen(true);
+  };
+  const save = () => {
+    if (!draft) return;
+    if (!draft.authorName || !draft.quote) { toast.error("Author name and quote are required"); return; }
+    const exists = testimonials.some(t => t.id === draft.id);
+    onSave(exists ? testimonials.map(t => t.id === draft.id ? draft : t) : [...testimonials, draft]);
+    toast.success(exists ? "Testimonial updated" : "Testimonial added");
+    setOpen(false);
+  };
+  const remove = (id: string) => {
+    if (confirm("Delete this testimonial?")) onSave(testimonials.filter(t => t.id !== id));
+  };
+  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !draft) return;
+    if (file.size > MAX_IMAGE_SIZE) { toast.error("Image too large (max 1MB)"); return; }
+    const reader = new FileReader();
+    reader.onloadend = () => setDraft({ ...draft, photoDataUrl: reader.result as string });
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <Card className="border-border/50 shadow-sm">
+      <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl flex flex-row items-center justify-between py-4">
+        <CardTitle className="font-serif text-2xl text-primary m-0">Testimonials</CardTitle>
+        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-2" /> Add</Button>
+      </CardHeader>
+      <CardContent className="pt-6">
+        {testimonials.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg bg-background">No testimonials yet.</div>
+        ) : (
+          <div className="space-y-3">
+            {testimonials.map(t => (
+              <div key={t.id} className="p-4 border rounded-xl bg-background flex items-start gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center overflow-hidden shrink-0">
+                  {t.photoDataUrl
+                    ? <img src={t.photoDataUrl} alt={t.authorName} className="w-full h-full object-cover" />
+                    : <span>{t.authorName.charAt(0) || "?"}</span>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold truncate">{t.authorName}</h4>
+                    <span className="text-xs text-muted-foreground truncate">{t.authorRole}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground italic line-clamp-2 mt-1">"{t.quote}"</p>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => openEdit(t)} aria-label="Edit"><Edit2 className="w-4 h-4" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => remove(t.id)} aria-label="Delete"><Trash2 className="w-4 h-4" /></Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{testimonials.some(t => t.id === draft?.id) ? "Edit" : "Add"} Testimonial</DialogTitle>
+          </DialogHeader>
+          {draft && (
+            <div className="space-y-3">
+              <div className="space-y-1.5"><Label>Author name</Label><Input value={draft.authorName} onChange={(e) => setDraft({ ...draft, authorName: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Role / relationship</Label><Input value={draft.authorRole} onChange={(e) => setDraft({ ...draft, authorRole: e.target.value })} placeholder="Parent, Alumnus, Grade 6 Student…" /></div>
+              <div className="space-y-1.5"><Label>Quote</Label><Textarea value={draft.quote} onChange={(e) => setDraft({ ...draft, quote: e.target.value })} className="h-28" /></div>
+              <div className="space-y-1.5">
+                <Label>Rating (0–5)</Label>
+                <Input type="number" min={0} max={5} value={draft.rating ?? 5} onChange={(e) => setDraft({ ...draft, rating: Math.min(5, Math.max(0, Number(e.target.value) || 0)) })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Photo (optional, &lt; 1 MB)</Label>
+                <input type="file" accept="image/jpeg, image/png, image/webp" ref={photoInputRef} onChange={handlePhoto} className="hidden" />
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => photoInputRef.current?.click()}>
+                    <Upload className="w-4 h-4 mr-2" /> Upload photo
+                  </Button>
+                  {draft.photoDataUrl && (
+                    <Button variant="ghost" size="sm" onClick={() => setDraft({ ...draft, photoDataUrl: undefined })}>Remove</Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={save}><Save className="w-4 h-4 mr-2" /> Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

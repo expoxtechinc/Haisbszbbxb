@@ -6,9 +6,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Seo } from "@/components/seo";
 
+const GALLERY_CATEGORIES: { value: import("@/lib/data").GalleryCategory; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "campus", label: "Campus" },
+  { value: "events", label: "Events" },
+  { value: "sports", label: "Sports" },
+  { value: "academics", label: "Academics" },
+  { value: "graduation", label: "Graduation" },
+  { value: "community", label: "Community" },
+];
+
 export default function Activities() {
   const { schoolInfo, activities, news, gallery } = useSchoolData();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [galleryFilter, setGalleryFilter] = useState<import("@/lib/data").GalleryCategory>("all");
+
+  const filteredGallery = galleryFilter === "all"
+    ? gallery
+    : gallery.filter((g) => (g.category ?? "campus") === galleryFilter);
 
   // Handle keyboard navigation for lightbox
   useEffect(() => {
@@ -132,9 +147,27 @@ export default function Activities() {
 
           {/* GALLERY TAB */}
           <TabsContent value="gallery" className="mt-0 focus-visible:outline-none min-h-[400px]">
-            {gallery.length > 0 ? (
+            {gallery.length > 0 && (
+              <div className="flex flex-wrap gap-2 justify-center mb-8">
+                {GALLERY_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.value}
+                    onClick={() => setGalleryFilter(cat.value)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                      galleryFilter === cat.value
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card text-foreground border-border/50 hover:bg-accent/10"
+                    }`}
+                    aria-pressed={galleryFilter === cat.value}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {filteredGallery.length > 0 ? (
               <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
-                {gallery.map((img, i) => (
+                {filteredGallery.map((img, i) => (
                   <motion.div
                     key={img.id}
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -158,7 +191,11 @@ export default function Activities() {
             ) : (
               <div className="text-center py-20 bg-card rounded-3xl border border-dashed border-border/50 max-w-4xl mx-auto">
                 <ImageIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                <p className="text-muted-foreground text-lg">The gallery is currently empty.</p>
+                <p className="text-muted-foreground text-lg">
+                  {gallery.length === 0
+                    ? "The gallery is currently empty."
+                    : "No photos in this category yet."}
+                </p>
               </div>
             )}
           </TabsContent>

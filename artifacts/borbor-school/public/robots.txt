@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+
+Sitemap: https://dasbmsoe-official.vercel.app/sitemap.xml
+Host: https://dasbmsoe-official.vercel.app

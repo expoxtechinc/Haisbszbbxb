@@ -30,11 +30,14 @@ export type News = {
   date: string;
 };
 
+export type GalleryCategory = "all" | "events" | "sports" | "graduation" | "academics" | "campus" | "community";
+
 export type GalleryImage = {
   id: string;
   dataUrl: string;
   caption: string;
   uploadedAt: string;
+  category?: Exclude<GalleryCategory, "all">;
 };
 
 export type StaffMember = {
@@ -43,6 +46,31 @@ export type StaffMember = {
   role: string;
   photoDataUrl?: string;
   bio?: string;
+};
+
+export type Testimonial = {
+  id: string;
+  authorName: string;
+  authorRole: string; // e.g. "Parent of Grade 7 student", "Class of 2024"
+  quote: string;
+  rating?: number; // 1-5
+  photoDataUrl?: string;
+  createdAt: string;
+};
+
+export type Achievement = {
+  id: string;
+  title: string;
+  description: string;
+  year: string;
+  icon?: "trophy" | "medal" | "award" | "star";
+};
+
+export type HeroSlide = {
+  id: string;
+  imageDataUrl: string;
+  headline: string;
+  subline?: string;
 };
 
 export type ContactSubmission = {
@@ -90,7 +118,46 @@ const defaultStaff: StaffMember[] = [
 ];
 
 const defaultGallery: GalleryImage[] = [
-  { id: "1", dataUrl: "/images/graduates.jpg", caption: "Class of 2024–2025 Graduation Day", uploadedAt: new Date().toISOString() }
+  { id: "1", dataUrl: "/images/graduates.jpg", caption: "Class of 2024–2025 Graduation Day", uploadedAt: new Date().toISOString(), category: "graduation" }
+];
+
+const defaultTestimonials: Testimonial[] = [
+  {
+    id: "t1",
+    authorName: "Mrs. Johnson",
+    authorRole: "Parent of Grade 5 student",
+    quote: "DASBMSE has shaped my child into a confident, disciplined learner. The teachers truly care about every student.",
+    rating: 5,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "t2",
+    authorName: "James K.",
+    authorRole: "Class of 2024 Graduate",
+    quote: "The values and academic excellence I gained at DASBMSE prepared me for university. Forever grateful.",
+    rating: 5,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "t3",
+    authorName: "Mr. Tarpeh",
+    authorRole: "Parent of JHS student",
+    quote: "Faith-grounded education with strong academics. Exactly what I wanted for my daughter.",
+    rating: 5,
+    createdAt: new Date().toISOString(),
+  },
+];
+
+const defaultAchievements: Achievement[] = [
+  { id: "a1", title: "100% WAEC Pass Rate", description: "All graduating seniors passed the West African Examinations Council exams.", year: "2024", icon: "trophy" },
+  { id: "a2", title: "Inter-School Quiz Champions", description: "Mount Barclay zone academic quiz competition winners.", year: "2024", icon: "medal" },
+  { id: "a3", title: "Community Service Award", description: "Recognized for outstanding community outreach by local leaders.", year: "2023", icon: "award" },
+];
+
+const defaultHeroSlides: HeroSlide[] = [
+  { id: "h1", imageDataUrl: "/images/graduates.jpg", headline: "Shaping Tomorrow's Leaders", subline: "Class of 2024–2025 Graduation Day" },
+  { id: "h2", imageDataUrl: "/images/school-logo.jpg", headline: "We Don't Just Teach, We Inspire", subline: "Faith-grounded education in Mount Barclay, Liberia" },
+  { id: "h3", imageDataUrl: "/images/vice-principal.jpg", headline: "Dedicated Leadership", subline: "Guiding every student toward excellence" },
 ];
 
 // Context Setup
@@ -108,6 +175,12 @@ type SchoolDataContextType = {
   submissions: ContactSubmission[];
   addSubmission: (sub: Omit<ContactSubmission, "id" | "submittedAt">) => void;
   deleteSubmission: (id: string) => void;
+  testimonials: Testimonial[];
+  setTestimonials: (t: Testimonial[]) => void;
+  achievements: Achievement[];
+  setAchievements: (a: Achievement[]) => void;
+  heroSlides: HeroSlide[];
+  setHeroSlides: (s: HeroSlide[]) => void;
   isAuthenticated: boolean;
   login: (pw: string) => boolean;
   logout: () => void;
@@ -139,6 +212,9 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
   const [gallery, setGalleryState] = useState<GalleryImage[]>(defaultGallery);
   const [staff, setStaffState] = useState<StaffMember[]>(defaultStaff);
   const [submissions, setSubmissionsState] = useState<ContactSubmission[]>([]);
+  const [testimonials, setTestimonialsState] = useState<Testimonial[]>(defaultTestimonials);
+  const [achievements, setAchievementsState] = useState<Achievement[]>(defaultAchievements);
+  const [heroSlides, setHeroSlidesState] = useState<HeroSlide[]>(defaultHeroSlides);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Initialize from localStorage
@@ -158,6 +234,9 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
     setGalleryState(load("gallery", defaultGallery));
     setStaffState(load("staff", defaultStaff));
     setSubmissionsState(load("submissions", []));
+    setTestimonialsState(load("testimonials", defaultTestimonials));
+    setAchievementsState(load("achievements", defaultAchievements));
+    setHeroSlidesState(load("heroSlides", defaultHeroSlides));
     
     const auth = load("auth", { authenticated: false, timestamp: 0 });
     // Simple 24h session expiration for frontend demo
@@ -199,6 +278,21 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("dasbmse:staff", JSON.stringify(s));
   };
 
+  const setTestimonials = (t: Testimonial[]) => {
+    setTestimonialsState(t);
+    localStorage.setItem("dasbmse:testimonials", JSON.stringify(t));
+  };
+
+  const setAchievements = (a: Achievement[]) => {
+    setAchievementsState(a);
+    localStorage.setItem("dasbmse:achievements", JSON.stringify(a));
+  };
+
+  const setHeroSlides = (s: HeroSlide[]) => {
+    setHeroSlidesState(s);
+    localStorage.setItem("dasbmse:heroSlides", JSON.stringify(s));
+  };
+
   const addSubmission = (sub: Omit<ContactSubmission, "id" | "submittedAt">) => {
     const newSub: ContactSubmission = {
       ...sub,
@@ -237,7 +331,7 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
     toast.info("Logged out successfully");
   };
 
-  const STORAGE_KEYS = ["schoolInfo", "activities", "news", "gallery", "staff", "submissions"];
+  const STORAGE_KEYS = ["schoolInfo", "activities", "news", "gallery", "staff", "submissions", "testimonials", "achievements", "heroSlides"];
 
   const exportBackup = (): string => {
     const data: Record<string, unknown> = {
@@ -269,6 +363,9 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
       if (data.gallery) setGalleryState(data.gallery);
       if (data.staff) setStaffState(data.staff);
       if (data.submissions) setSubmissionsState(data.submissions);
+      if (data.testimonials) setTestimonialsState(data.testimonials);
+      if (data.achievements) setAchievementsState(data.achievements);
+      if (data.heroSlides) setHeroSlidesState(data.heroSlides);
       toast.success("Backup restored successfully");
       return true;
     } catch (e) {
@@ -286,6 +383,9 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
     setGalleryState(defaultGallery);
     setStaffState(defaultStaff);
     setSubmissionsState([]);
+    setTestimonialsState(defaultTestimonials);
+    setAchievementsState(defaultAchievements);
+    setHeroSlidesState(defaultHeroSlides);
     toast.success("All content reset to defaults");
   };
 
@@ -357,6 +457,9 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
       gallery, setGallery,
       staff, setStaff,
       submissions, addSubmission, deleteSubmission,
+      testimonials, setTestimonials,
+      achievements, setAchievements,
+      heroSlides, setHeroSlides,
       isAuthenticated, login, logout, changePassword,
       isLoaded,
       exportBackup, importBackup, resetAllData,

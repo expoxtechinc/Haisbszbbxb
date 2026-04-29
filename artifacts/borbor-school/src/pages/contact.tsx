@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -16,11 +16,20 @@ const contactSchema = z.object({
   email: z.string().email("Invalid email address"),
   phone: z.string().min(6, "Phone number is required"),
   message: z.string().min(10, "Message must be at least 10 characters"),
+  // Honeypot — must stay empty. Bots auto-fill all fields.
+  website: z.string().max(0, "Spam detected").optional(),
 });
+
+import { toast } from "sonner";
 
 export default function Contact() {
   const { schoolInfo, addSubmission } = useSchoolData();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formLoadedAt = useRef<number>(Date.now());
+
+  useEffect(() => {
+    formLoadedAt.current = Date.now();
+  }, []);
 
   const form = useForm<z.infer<typeof contactSchema>>({
     resolver: zodResolver(contactSchema),
@@ -29,15 +38,30 @@ export default function Contact() {
       email: "",
       phone: "",
       message: "",
+      website: "",
     },
   });
 
   const onSubmit = async (values: z.infer<typeof contactSchema>) => {
+    // Honeypot: hidden "website" field must be empty
+    if (values.website && values.website.length > 0) {
+      toast.success("Message sent. We'll be in touch soon.");
+      form.reset();
+      return;
+    }
+    // Time-based bot check: real humans take at least ~3s to fill the form
+    const elapsed = Date.now() - formLoadedAt.current;
+    if (elapsed < 3000) {
+      toast.error("Please take a moment to review your message before sending.");
+      return;
+    }
+
     setIsSubmitting(true);
-    // Simulate network delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 800));
-    addSubmission(values);
+    await new Promise(resolve => setTimeout(resolve, 600));
+    const { website: _hp, ...payload } = values;
+    addSubmission(payload);
     form.reset();
+    formLoadedAt.current = Date.now();
     setIsSubmitting(false);
   };
 
@@ -133,6 +157,27 @@ export default function Contact() {
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Honeypot field — hidden from real users, visible to bots */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: "-10000px",
+                    top: "auto",
+                    width: "1px",
+                    height: "1px",
+                    overflow: "hidden",
+                  }}
+                >
+                  <label htmlFor="contact-website-hp">Website (leave empty)</label>
+                  <input
+                    id="contact-website-hp"
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    {...form.register("website")}
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
