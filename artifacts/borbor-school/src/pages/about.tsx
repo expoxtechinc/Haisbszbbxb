@@ -101,6 +101,11 @@ export default function About() {
         title={`About ${schoolInfo.name} — DASBMSE | Mount Barclay, Liberia`}
         description={`Learn about Dr. Abraham S. Borbor Memorial School Of Excellence (DASBMSE) — our history since ${schoolInfo.established}, mission, vision, and faith-grounded approach to education in Mount Barclay, Liberia.`}
         path="/about"
+        schoolInfo={schoolInfo}
+        breadcrumbs={[
+          { name: "Home", url: "https://dasbmsoe-official.vercel.app/" },
+          { name: "About", url: "https://dasbmsoe-official.vercel.app/about" },
+        ]}
       />
       {/* Header */}
       <section className="bg-primary pt-20 pb-24 text-center px-4">

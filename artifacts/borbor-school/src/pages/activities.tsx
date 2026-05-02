@@ -42,6 +42,11 @@ export default function Activities() {
         title={`Activities, News & Gallery — ${schoolInfo.name} (DASBMSE)`}
         description={`Latest news, events, photo gallery and student activities at Dr. Abraham S. Borbor Memorial School Of Excellence (DASBMSE) in Mount Barclay, Liberia.`}
         path="/activities"
+        schoolInfo={schoolInfo}
+        breadcrumbs={[
+          { name: "Home", url: "https://dasbmsoe-official.vercel.app/" },
+          { name: "Activities & News", url: "https://dasbmsoe-official.vercel.app/activities" },
+        ]}
       />
       <section className="bg-primary pt-20 pb-16 text-center px-4">
         <motion.div

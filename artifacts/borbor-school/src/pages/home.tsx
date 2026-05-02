@@ -20,6 +20,7 @@ export default function Home() {
         title={`${schoolInfo.name} — DR. ABRAHAM S. BORBOR SCHOOL, Mount Barclay, Liberia`}
         description={`${schoolInfo.name} (DASBMSE). ${schoolInfo.slogan} A Christian primary, junior high, and senior high school in Mount Barclay, Lower Johnsonville, Monrovia, Liberia.`}
         path="/"
+        schoolInfo={schoolInfo}
       />
       {/* Hero Section */}
       <section className="relative w-full overflow-hidden bg-gradient-to-b from-primary/5 to-background pt-12 pb-24 md:pt-24 md:pb-32">

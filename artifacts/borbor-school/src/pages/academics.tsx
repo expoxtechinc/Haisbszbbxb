@@ -44,6 +44,11 @@ export default function Academics() {
         title={`Academics — ${schoolInfo.name} (DASBMSE) | Mount Barclay, Liberia`}
         description={`Explore academic programs at Dr. Abraham S. Borbor Memorial School Of Excellence: Primary School, Junior High, and Senior High in Mount Barclay, Lower Johnsonville, Liberia.`}
         path="/academics"
+        schoolInfo={schoolInfo}
+        breadcrumbs={[
+          { name: "Home", url: "https://dasbmsoe-official.vercel.app/" },
+          { name: "Academics", url: "https://dasbmsoe-official.vercel.app/academics" },
+        ]}
       />
       <section className="bg-primary pt-20 pb-20 text-center px-4 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>

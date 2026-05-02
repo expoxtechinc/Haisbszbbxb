@@ -73,6 +73,11 @@ export default function Contact() {
         title={`Contact Us — ${schoolInfo.name} (DASBMSE) | ${schoolInfo.address}`}
         description={`Contact Dr. Abraham S. Borbor Memorial School Of Excellence. Phone, email, WhatsApp, Facebook, and address in Mount Barclay, Lower Johnsonville, Monrovia, Liberia.`}
         path="/contact"
+        schoolInfo={schoolInfo}
+        breadcrumbs={[
+          { name: "Home", url: "https://dasbmsoe-official.vercel.app/" },
+          { name: "Contact", url: "https://dasbmsoe-official.vercel.app/contact" },
+        ]}
       />
       <section className="bg-primary pt-20 pb-24 text-center px-4 relative">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
