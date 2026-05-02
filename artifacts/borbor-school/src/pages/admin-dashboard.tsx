@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Save, Plus, Trash2, Edit2, KeyRound, Upload, Users, Image as ImageIcon, Newspaper, Info, MessageSquare, Database, BarChart3, Download as DownloadIcon, RefreshCcw, Quote, Trophy, Sparkles } from "lucide-react";
+import { LogOut, Save, Plus, Trash2, Edit2, KeyRound, Upload, Users, Image as ImageIcon, Newspaper, Info, MessageSquare, Database, BarChart3, Download as DownloadIcon, RefreshCcw, Quote, Trophy, Sparkles, ClipboardList, CheckCircle2, XCircle, Clock, Eye } from "lucide-react";
 import { useSchoolData, SchoolInfo, Activity, News, StaffMember, GalleryImage, VisitStats, Testimonial, Achievement, HeroSlide, GalleryCategory } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +80,7 @@ export default function AdminDashboard() {
                 { val: "achievements", label: "Achievements", icon: Trophy },
                 { val: "testimonials", label: "Testimonials", icon: Quote },
                 { val: "staff", label: "Staff", icon: Users },
+                { val: "applications", label: "Applications", icon: ClipboardList },
                 { val: "messages", label: "Messages", icon: MessageSquare },
                 { val: "stats", label: "Visit Stats", icon: BarChart3 },
                 { val: "backup", label: "Backup", icon: Database },
@@ -185,6 +186,10 @@ export default function AdminDashboard() {
 
             <TabsContent value="staff" className="mt-0 outline-none">
               <StaffManager staff={staff} onSave={setStaff} />
+            </TabsContent>
+
+            <TabsContent value="applications" className="mt-0 outline-none">
+              <ApplicationsManager />
             </TabsContent>
 
             <TabsContent value="messages" className="mt-0 outline-none">
@@ -1213,5 +1218,265 @@ function BackupManager({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+type ApplicationDoc = { name: string; type: string; dataUrl: string; size: number };
+type Application = {
+  id: string;
+  studentName: string;
+  dateOfBirth: string;
+  gender: string;
+  nationality: string;
+  parentName: string;
+  relationship: string;
+  parentPhone: string;
+  parentEmail: string;
+  parentAddress: string;
+  gradeApplying: string;
+  academicYear: string;
+  previousSchool: string;
+  hasSpecialNeeds: boolean;
+  specialNeedsDetails: string;
+  additionalNotes: string;
+  documents: Record<string, ApplicationDoc>;
+  status: string;
+  adminNotes: string | null;
+  submittedAt: string;
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  reviewing: "bg-blue-100 text-blue-800 border-blue-200",
+  accepted: "bg-green-100 text-green-800 border-green-200",
+  rejected: "bg-red-100 text-red-800 border-red-200",
+};
+const STATUS_ICONS: Record<string, React.ReactNode> = {
+  pending: <Clock className="w-3.5 h-3.5" />,
+  reviewing: <Eye className="w-3.5 h-3.5" />,
+  accepted: <CheckCircle2 className="w-3.5 h-3.5" />,
+  rejected: <XCircle className="w-3.5 h-3.5" />,
+};
+
+const DOC_LABELS: Record<string, string> = {
+  passport_photo: "Passport Photo",
+  birth_certificate: "Birth Certificate",
+  school_report: "School Report",
+  medical_certificate: "Medical Certificate",
+};
+
+function ApplicationsManager() {
+  const { isAuthenticated } = useSchoolData();
+  const [apps, setApps] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Application | null>(null);
+  const [statusNote, setStatusNote] = useState("");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const token = typeof window !== "undefined" ? localStorage.getItem("dasbmse:authToken") ?? "" : "";
+
+  const fetchApps = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/applications", { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed");
+      setApps(await res.json());
+    } catch {
+      toast.error("Could not load applications");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { if (isAuthenticated) fetchApps(); }, [isAuthenticated]);
+
+  const updateStatus = async (id: string, status: string) => {
+    setUpdatingId(id);
+    try {
+      const res = await fetch(`/api/applications/${id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status, notes: statusNote }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success(`Status updated to "${status}"`);
+      setSelected(prev => prev ? { ...prev, status, adminNotes: statusNote } : null);
+      await fetchApps();
+    } catch {
+      toast.error("Failed to update status");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const deleteApp = async (id: string) => {
+    if (!confirm("Delete this application permanently?")) return;
+    try {
+      await fetch(`/api/applications/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      toast.success("Application deleted");
+      setSelected(null);
+      await fetchApps();
+    } catch {
+      toast.error("Failed to delete");
+    }
+  };
+
+  const counts: Record<string, number> = { pending: 0, reviewing: 0, accepted: 0, rejected: 0 };
+  apps.forEach(a => { if (a.status in counts) counts[a.status]++; });
+
+  return (
+    <Card className="border-border/50 shadow-sm">
+      <CardHeader className="bg-muted/30 border-b border-border/50 rounded-t-xl">
+        <div className="flex items-center justify-between">
+          <CardTitle className="font-serif text-2xl text-primary">Enrollment Applications</CardTitle>
+          <Button size="sm" variant="outline" onClick={fetchApps} disabled={loading} className="gap-2">
+            <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          {(["pending", "reviewing", "accepted", "rejected"] as const).map(s => (
+            <span key={s} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${STATUS_COLORS[s]}`}>
+              {STATUS_ICONS[s]} {s.charAt(0).toUpperCase() + s.slice(1)}: {counts[s]}
+            </span>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-4">
+        {loading ? (
+          <p className="text-muted-foreground text-sm text-center py-8">Loading applications…</p>
+        ) : apps.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>No applications received yet.</p>
+            <p className="text-xs mt-1">Applications submitted via the <strong>/enroll</strong> page will appear here.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {apps.map((app) => (
+              <div
+                key={app.id}
+                onClick={() => { setSelected(app); setStatusNote(app.adminNotes ?? ""); }}
+                className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-background cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground truncate">{app.studentName}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Grade: <span className="font-medium">{app.gradeApplying}</span> · {app.academicYear} · Parent: {app.parentName}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{new Date(app.submittedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</div>
+                </div>
+                <span className={`ml-3 shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${STATUS_COLORS[app.status] ?? ""}`}>
+                  {STATUS_ICONS[app.status]} {app.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {selected && (
+          <Dialog open={!!selected} onOpenChange={open => !open && setSelected(null)}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-serif text-xl text-primary">Application — {selected.studentName}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    ["Student Name", selected.studentName],
+                    ["Date of Birth", selected.dateOfBirth],
+                    ["Gender", selected.gender],
+                    ["Nationality", selected.nationality],
+                    ["Grade Applying", selected.gradeApplying],
+                    ["Academic Year", selected.academicYear],
+                    ["Previous School", selected.previousSchool || "—"],
+                    ["Special Needs", selected.hasSpecialNeeds ? "Yes" : "No"],
+                    ["Parent / Guardian", selected.parentName],
+                    ["Relationship", selected.relationship],
+                    ["Phone", selected.parentPhone],
+                    ["Email", selected.parentEmail],
+                  ] as [string, string][]).map(([label, val]) => (
+                    <div key={label}>
+                      <div className="text-xs text-muted-foreground font-medium">{label}</div>
+                      <div className="font-medium text-foreground">{val}</div>
+                    </div>
+                  ))}
+                  <div className="col-span-2">
+                    <div className="text-xs text-muted-foreground font-medium">Home Address</div>
+                    <div className="font-medium text-foreground">{selected.parentAddress}</div>
+                  </div>
+                  {selected.specialNeedsDetails && (
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground font-medium">Special Needs Details</div>
+                      <div className="text-foreground">{selected.specialNeedsDetails}</div>
+                    </div>
+                  )}
+                  {selected.additionalNotes && (
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground font-medium">Additional Notes</div>
+                      <div className="text-foreground">{selected.additionalNotes}</div>
+                    </div>
+                  )}
+                </div>
+
+                {Object.keys(selected.documents).length > 0 && (
+                  <div>
+                    <div className="text-xs text-muted-foreground font-medium mb-2">Submitted Documents</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(selected.documents).map(([key, doc]) => (
+                        <a
+                          key={key}
+                          href={doc.dataUrl}
+                          download={doc.name}
+                          className="flex items-center gap-2 p-2.5 rounded-lg border border-border/50 hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                        >
+                          <DownloadIcon className="w-4 h-4 text-primary shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-xs font-medium truncate">{DOC_LABELS[key] ?? key}</div>
+                            <div className="text-xs text-muted-foreground">{(doc.size / 1024).toFixed(0)} KB</div>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="border-t border-border/50 pt-4 space-y-3">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Update Status</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["pending", "reviewing", "accepted", "rejected"] as const).map(s => (
+                      <Button
+                        key={s}
+                        size="sm"
+                        variant={selected.status === s ? "default" : "outline"}
+                        disabled={updatingId === selected.id}
+                        onClick={() => updateStatus(selected.id, s)}
+                        className="gap-1.5 capitalize"
+                      >
+                        {STATUS_ICONS[s]} {s}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Admin Note (optional)</Label>
+                    <Textarea
+                      value={statusNote}
+                      onChange={e => setStatusNote(e.target.value)}
+                      placeholder="Internal note visible only to admin…"
+                      className="resize-none h-20 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="gap-2 flex-wrap">
+                <Button variant="destructive" size="sm" onClick={() => deleteApp(selected.id)} className="gap-2">
+                  <Trash2 className="w-4 h-4" /> Delete Application
+                </Button>
+                <Button variant="outline" onClick={() => setSelected(null)}>Close</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardContent>
+    </Card>
   );
 }

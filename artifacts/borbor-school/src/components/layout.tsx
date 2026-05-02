@@ -48,6 +48,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/about", label: "About" },
     { href: "/academics", label: "Academics" },
     { href: "/activities", label: "Activities" },
+    { href: "/calendar", label: "Calendar" },
     { href: "/staff", label: "Staff" },
     { href: "/contact", label: "Contact" },
   ];
@@ -107,9 +108,9 @@ export function Layout({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="hidden md:block">
-            <Link href="/contact">
+            <Link href="/enroll">
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md">
-                Enroll Now
+                Apply Now
               </Button>
             </Link>
           </div>
@@ -154,9 +155,9 @@ export function Layout({ children }: { children: ReactNode }) {
                     <div className="text-lg py-2 border-b border-border/50">{link.label}</div>
                   </NavLink>
                 ))}
-                <Link href="/contact" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/enroll" onClick={() => setMobileMenuOpen(false)}>
                   <Button className="w-full mt-4 bg-primary text-primary-foreground font-semibold">
-                    Enroll Now
+                    Apply Now
                   </Button>
                 </Link>
               </div>

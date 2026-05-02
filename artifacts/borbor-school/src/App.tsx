@@ -12,6 +12,8 @@ import Academics from "@/pages/academics";
 import Activities from "@/pages/activities";
 import Staff from "@/pages/staff";
 import Contact from "@/pages/contact";
+import Enroll from "@/pages/enroll";
+import CalendarPage from "@/pages/calendar";
 import AdminLogin from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin-dashboard";
 import NotFound from "@/pages/not-found";
@@ -38,6 +40,8 @@ function Router() {
         <Route path="/activities" component={Activities} />
         <Route path="/staff" component={Staff} />
         <Route path="/contact" component={Contact} />
+        <Route path="/enroll" component={Enroll} />
+        <Route path="/calendar" component={CalendarPage} />
         <Route path="/admin/login" component={AdminLogin} />
         <Route path="/admin" component={AdminDashboard} />
         <Route component={NotFound} />
