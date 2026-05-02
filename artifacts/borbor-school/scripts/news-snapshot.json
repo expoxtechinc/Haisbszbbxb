@@ -1,0 +1,17 @@
+{
+  "$schema_note": "Frozen news snapshot used by scripts/build-feed.mjs to generate /feed.xml and /feed.json at build time. To update the public RSS/JSON feed, add or edit items below and rebuild. The runtime admin dashboard is per-browser only and does not affect this feed.",
+  "items": [
+    {
+      "id": "1",
+      "title": "Welcome Back to a New Academic Year",
+      "body": "We are excited to welcome all our students back for another year of learning and inspiration at Dr. Abraham S. Borbor Memorial School Of Excellence. Classes resume on schedule and we look forward to a year of academic growth, character building, and community.",
+      "date": "2025-09-01T08:00:00.000Z"
+    },
+    {
+      "id": "2",
+      "title": "2024–2025 Graduation Highlights",
+      "body": "Congratulations to our recent graduates who have shown exceptional dedication and hard work. The Class of 2024–2025 marks another milestone for our growing school community in Mount Barclay, Liberia.",
+      "date": "2025-08-01T08:00:00.000Z"
+    }
+  ]
+}

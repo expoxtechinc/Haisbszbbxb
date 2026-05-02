@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.config.ts",
+    "dev": "node scripts/build-feed.mjs && vite --config vite.config.ts --host 0.0.0.0",
+    "build:feed": "node scripts/build-feed.mjs",
+    "build": "node scripts/build-feed.mjs && vite build --config vite.config.ts && node scripts/build-feed.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

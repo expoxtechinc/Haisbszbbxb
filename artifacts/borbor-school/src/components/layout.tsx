@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, MapPin, Phone, Mail, Facebook, MessageCircle, ChevronUp } from "lucide-react";
+import { Menu, X, MapPin, Phone, Mail, Facebook, MessageCircle, ChevronUp, Rss } from "lucide-react";
 import { useSchoolData } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 
@@ -215,6 +215,18 @@ export function Layout({ children }: { children: ReactNode }) {
                 <li><Link href="/activities"><span className="text-primary-foreground/80 hover:text-white transition-colors cursor-pointer">Activities & Gallery</span></Link></li>
                 <li><Link href="/staff"><span className="text-primary-foreground/80 hover:text-white transition-colors cursor-pointer">Our Staff</span></Link></li>
                 <li><Link href="/contact"><span className="text-primary-foreground/80 hover:text-white transition-colors cursor-pointer">Contact Us</span></Link></li>
+                <li>
+                  <a
+                    href="/feed.xml"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-primary-foreground/80 hover:text-white transition-colors cursor-pointer"
+                    aria-label="Subscribe to DASBMSE news RSS feed"
+                  >
+                    <Rss className="w-4 h-4" />
+                    <span>News RSS Feed</span>
+                  </a>
+                </li>
               </ul>
             </div>
 
