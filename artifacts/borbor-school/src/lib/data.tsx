@@ -51,9 +51,9 @@ export type StaffMember = {
 export type Testimonial = {
   id: string;
   authorName: string;
-  authorRole: string; // e.g. "Parent of Grade 7 student", "Class of 2024"
+  authorRole: string;
   quote: string;
-  rating?: number; // 1-5
+  rating?: number;
   photoDataUrl?: string;
   createdAt: string;
 };
@@ -160,7 +160,134 @@ const defaultHeroSlides: HeroSlide[] = [
   { id: "h3", imageDataUrl: "/images/vice-principal.jpg", headline: "Dedicated Leadership", subline: "Guiding every student toward excellence" },
 ];
 
+// API helpers
+const API_BASE = "/api";
+
+function getAuthToken(): string | null {
+  try {
+    const raw = localStorage.getItem("dasbmse:authToken");
+    if (!raw) return null;
+    const { token, expiresAt } = JSON.parse(raw) as { token: string; expiresAt: number };
+    if (Date.now() > expiresAt) {
+      localStorage.removeItem("dasbmse:authToken");
+      return null;
+    }
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+function saveAuthToken(token: string, expiresAt: number) {
+  localStorage.setItem("dasbmse:authToken", JSON.stringify({ token, expiresAt }));
+}
+
+function clearAuthToken() {
+  localStorage.removeItem("dasbmse:authToken");
+}
+
+async function apiGet<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`);
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function apiGetAuth<T>(path: string): Promise<T | null> {
+  const token = getAuthToken();
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function apiPut(path: string, value: unknown): Promise<boolean> {
+  const token = getAuthToken();
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ value }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function apiPost<T>(path: string, body: unknown, auth = false): Promise<T | null> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (auth) {
+    const token = getAuthToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function apiDelete(path: string): Promise<boolean> {
+  const token = getAuthToken();
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// localStorage helpers (cache layer)
+function lsGet<T>(key: string, defaultValue: T): T {
+  const stored = localStorage.getItem(`dasbmse:${key}`);
+  if (stored) {
+    try { return JSON.parse(stored) as T; } catch { return defaultValue; }
+  }
+  return defaultValue;
+}
+
+function lsSet(key: string, value: unknown) {
+  try {
+    localStorage.setItem(`dasbmse:${key}`, JSON.stringify(value));
+  } catch {
+    // ignore quota errors
+  }
+}
+
 // Context Setup
+export type VisitStats = {
+  totalVisits: number;
+  uniqueDays: number;
+  perPage: { path: string; count: number }[];
+  last7Days: { date: string; count: number }[];
+  firstVisit: string | null;
+  lastVisit: string | null;
+};
+
 type SchoolDataContextType = {
   schoolInfo: SchoolInfo;
   setSchoolInfo: (info: SchoolInfo) => void;
@@ -182,10 +309,11 @@ type SchoolDataContextType = {
   heroSlides: HeroSlide[];
   setHeroSlides: (s: HeroSlide[]) => void;
   isAuthenticated: boolean;
-  login: (pw: string) => boolean;
+  login: (pw: string) => Promise<boolean>;
   logout: () => void;
   changePassword: (oldPw: string, newPw: string) => boolean;
   isLoaded: boolean;
+  isSyncing: boolean;
   exportBackup: () => string;
   importBackup: (json: string) => boolean;
   resetAllData: () => void;
@@ -193,19 +321,11 @@ type SchoolDataContextType = {
   getStats: () => VisitStats;
 };
 
-export type VisitStats = {
-  totalVisits: number;
-  uniqueDays: number;
-  perPage: { path: string; count: number }[];
-  last7Days: { date: string; count: number }[];
-  firstVisit: string | null;
-  lastVisit: string | null;
-};
-
 const SchoolDataContext = createContext<SchoolDataContextType | null>(null);
 
 export function SchoolDataProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [schoolInfo, setSchoolInfoState] = useState<SchoolInfo>(defaultSchoolInfo);
   const [activities, setActivitiesState] = useState<Activity[]>(defaultActivities);
   const [news, setNewsState] = useState<News[]>(defaultNews);
@@ -217,109 +337,202 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
   const [heroSlides, setHeroSlidesState] = useState<HeroSlide[]>(defaultHeroSlides);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Initialize from localStorage
+  // Initialize: load from localStorage immediately, then sync from API
   useEffect(() => {
-    const load = (key: string, defaultValue: any) => {
-      const stored = localStorage.getItem(`dasbmse:${key}`);
-      if (stored) {
-        try { return JSON.parse(stored); } catch (e) { return defaultValue; }
-      }
-      localStorage.setItem(`dasbmse:${key}`, JSON.stringify(defaultValue));
-      return defaultValue;
-    };
+    // Step 1: hydrate from localStorage cache for instant load
+    const cachedSchoolInfo = lsGet<Partial<SchoolInfo>>("schoolInfo", defaultSchoolInfo);
+    const mergedSchoolInfo = { ...defaultSchoolInfo, ...cachedSchoolInfo };
+    if (!Array.isArray(mergedSchoolInfo.phones)) mergedSchoolInfo.phones = defaultSchoolInfo.phones;
+    setSchoolInfoState(mergedSchoolInfo);
+    setActivitiesState(lsGet("activities", defaultActivities));
+    setNewsState(lsGet("news", defaultNews));
+    setGalleryState(lsGet("gallery", defaultGallery));
+    setStaffState(lsGet("staff", defaultStaff));
+    setTestimonialsState(lsGet("testimonials", defaultTestimonials));
+    setAchievementsState(lsGet("achievements", defaultAchievements));
+    setHeroSlidesState(lsGet("heroSlides", defaultHeroSlides));
 
-    setSchoolInfoState(load("schoolInfo", defaultSchoolInfo));
-    setActivitiesState(load("activities", defaultActivities));
-    setNewsState(load("news", defaultNews));
-    setGalleryState(load("gallery", defaultGallery));
-    setStaffState(load("staff", defaultStaff));
-    setSubmissionsState(load("submissions", []));
-    setTestimonialsState(load("testimonials", defaultTestimonials));
-    setAchievementsState(load("achievements", defaultAchievements));
-    setHeroSlidesState(load("heroSlides", defaultHeroSlides));
-    
-    const auth = load("auth", { authenticated: false, timestamp: 0 });
-    // Simple 24h session expiration for frontend demo
-    if (auth.authenticated && Date.now() - auth.timestamp < 86400000) {
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-      localStorage.setItem("dasbmse:auth", JSON.stringify({ authenticated: false, timestamp: 0 }));
-    }
-
-    load("credentials", { email: "borborschool.admin@gmail.com", passwordHash: btoa("Admin2026") });
+    // Restore auth state
+    const token = getAuthToken();
+    if (token) setIsAuthenticated(true);
 
     setIsLoaded(true);
+
+    // Step 2: fetch fresh data from API in background
+    setIsSyncing(true);
+    apiGet<Record<string, unknown>>("/data").then((data) => {
+      if (data) {
+        if (data.schoolInfo && typeof data.schoolInfo === "object") {
+          const merged = { ...defaultSchoolInfo, ...(data.schoolInfo as Partial<SchoolInfo>) };
+          if (!Array.isArray(merged.phones)) merged.phones = defaultSchoolInfo.phones;
+          setSchoolInfoState(merged);
+          lsSet("schoolInfo", merged);
+        }
+        if (Array.isArray(data.activities)) {
+          setActivitiesState(data.activities as Activity[]);
+          lsSet("activities", data.activities);
+        }
+        if (Array.isArray(data.news)) {
+          setNewsState(data.news as News[]);
+          lsSet("news", data.news);
+        }
+        if (Array.isArray(data.gallery)) {
+          setGalleryState(data.gallery as GalleryImage[]);
+          lsSet("gallery", data.gallery);
+        }
+        if (Array.isArray(data.staff)) {
+          setStaffState(data.staff as StaffMember[]);
+          lsSet("staff", data.staff);
+        }
+        if (Array.isArray(data.testimonials)) {
+          setTestimonialsState(data.testimonials as Testimonial[]);
+          lsSet("testimonials", data.testimonials);
+        }
+        if (Array.isArray(data.achievements)) {
+          setAchievementsState(data.achievements as Achievement[]);
+          lsSet("achievements", data.achievements);
+        }
+        if (Array.isArray(data.heroSlides)) {
+          setHeroSlidesState(data.heroSlides as HeroSlide[]);
+          lsSet("heroSlides", data.heroSlides);
+        }
+      }
+    }).finally(() => setIsSyncing(false));
+
+    // Load submissions for authenticated admin
+    if (token) {
+      loadSubmissions();
+    }
   }, []);
 
-  const setSchoolInfo = (info: SchoolInfo) => {
+  const loadSubmissions = async () => {
+    const data = await apiGetAuth<ContactSubmission[]>("/submissions");
+    if (data) {
+      setSubmissionsState(data);
+      lsSet("submissions", data);
+    } else {
+      setSubmissionsState(lsGet("submissions", []));
+    }
+  };
+
+  const setSchoolInfo = async (info: SchoolInfo) => {
     setSchoolInfoState(info);
-    localStorage.setItem("dasbmse:schoolInfo", JSON.stringify(info));
-    toast.success("School info updated successfully");
+    lsSet("schoolInfo", info);
+    const ok = await apiPut("/data/schoolInfo", info);
+    if (ok) {
+      toast.success("School info updated successfully");
+    } else {
+      toast.success("School info saved locally");
+    }
   };
 
-  const setActivities = (acts: Activity[]) => {
+  const setActivities = async (acts: Activity[]) => {
     setActivitiesState(acts);
-    localStorage.setItem("dasbmse:activities", JSON.stringify(acts));
+    lsSet("activities", acts);
+    await apiPut("/data/activities", acts);
   };
 
-  const setNews = (n: News[]) => {
+  const setNews = async (n: News[]) => {
     setNewsState(n);
-    localStorage.setItem("dasbmse:news", JSON.stringify(n));
+    lsSet("news", n);
+    await apiPut("/data/news", n);
   };
 
-  const setGallery = (g: GalleryImage[]) => {
+  const setGallery = async (g: GalleryImage[]) => {
     setGalleryState(g);
-    localStorage.setItem("dasbmse:gallery", JSON.stringify(g));
+    lsSet("gallery", g);
+    await apiPut("/data/gallery", g);
   };
 
-  const setStaff = (s: StaffMember[]) => {
+  const setStaff = async (s: StaffMember[]) => {
     setStaffState(s);
-    localStorage.setItem("dasbmse:staff", JSON.stringify(s));
+    lsSet("staff", s);
+    await apiPut("/data/staff", s);
   };
 
-  const setTestimonials = (t: Testimonial[]) => {
+  const setTestimonials = async (t: Testimonial[]) => {
     setTestimonialsState(t);
-    localStorage.setItem("dasbmse:testimonials", JSON.stringify(t));
+    lsSet("testimonials", t);
+    await apiPut("/data/testimonials", t);
   };
 
-  const setAchievements = (a: Achievement[]) => {
+  const setAchievements = async (a: Achievement[]) => {
     setAchievementsState(a);
-    localStorage.setItem("dasbmse:achievements", JSON.stringify(a));
+    lsSet("achievements", a);
+    await apiPut("/data/achievements", a);
   };
 
-  const setHeroSlides = (s: HeroSlide[]) => {
+  const setHeroSlides = async (s: HeroSlide[]) => {
     setHeroSlidesState(s);
-    localStorage.setItem("dasbmse:heroSlides", JSON.stringify(s));
+    lsSet("heroSlides", s);
+    await apiPut("/data/heroSlides", s);
   };
 
-  const addSubmission = (sub: Omit<ContactSubmission, "id" | "submittedAt">) => {
-    const newSub: ContactSubmission = {
-      ...sub,
-      id: Math.random().toString(36).substr(2, 9),
-      submittedAt: new Date().toISOString()
-    };
-    const updated = [newSub, ...submissions];
-    setSubmissionsState(updated);
-    localStorage.setItem("dasbmse:submissions", JSON.stringify(updated));
-    toast.success("Message sent successfully!");
+  const addSubmission = async (sub: Omit<ContactSubmission, "id" | "submittedAt">) => {
+    const result = await apiPost<{ ok: boolean; id: string; submittedAt: string }>(
+      "/submissions",
+      sub
+    );
+    if (result) {
+      const newSub: ContactSubmission = {
+        ...sub,
+        id: result.id,
+        submittedAt: result.submittedAt,
+      };
+      const updated = [newSub, ...submissions];
+      setSubmissionsState(updated);
+      lsSet("submissions", updated);
+      toast.success("Message sent successfully!");
+    } else {
+      // Fallback: save locally
+      const newSub: ContactSubmission = {
+        ...sub,
+        id: Math.random().toString(36).substring(2, 9),
+        submittedAt: new Date().toISOString(),
+      };
+      const updated = [newSub, ...submissions];
+      setSubmissionsState(updated);
+      lsSet("submissions", updated);
+      toast.success("Message sent!");
+    }
   };
 
-  const deleteSubmission = (id: string) => {
+  const deleteSubmission = async (id: string) => {
+    const ok = await apiDelete(`/submissions/${id}`);
     const updated = submissions.filter(s => s.id !== id);
     setSubmissionsState(updated);
-    localStorage.setItem("dasbmse:submissions", JSON.stringify(updated));
-    toast.success("Submission deleted");
+    lsSet("submissions", updated);
+    if (ok) {
+      toast.success("Submission deleted");
+    } else {
+      toast.success("Submission removed locally");
+    }
   };
 
-  const login = (pw: string) => {
+  const login = async (pw: string): Promise<boolean> => {
+    const result = await apiPost<{ token: string; expiresAt: number }>(
+      "/auth/login",
+      { password: pw }
+    );
+    if (result) {
+      saveAuthToken(result.token, result.expiresAt);
+      setIsAuthenticated(true);
+      // Load submissions after login
+      await loadSubmissions();
+      return true;
+    }
+    // Fallback: check against old localStorage credentials for offline use
     const credsStr = localStorage.getItem("dasbmse:credentials");
     if (credsStr) {
-      const creds = JSON.parse(credsStr);
-      if (btoa(pw) === creds.passwordHash) {
-        setIsAuthenticated(true);
-        localStorage.setItem("dasbmse:auth", JSON.stringify({ authenticated: true, timestamp: Date.now() }));
-        return true;
+      try {
+        const creds = JSON.parse(credsStr) as { passwordHash: string };
+        if (btoa(pw) === creds.passwordHash) {
+          setIsAuthenticated(true);
+          setSubmissionsState(lsGet("submissions", []));
+          return true;
+        }
+      } catch {
+        return false;
       }
     }
     return false;
@@ -327,7 +540,7 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setIsAuthenticated(false);
-    localStorage.setItem("dasbmse:auth", JSON.stringify({ authenticated: false, timestamp: 0 }));
+    clearAuthToken();
     toast.info("Logged out successfully");
   };
 
@@ -350,22 +563,39 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
 
   const importBackup = (json: string): boolean => {
     try {
-      const data = JSON.parse(json);
+      const data = JSON.parse(json) as Record<string, unknown>;
       if (!data || typeof data !== "object") throw new Error("Invalid file");
+
+      const importToApi = async () => {
+        if (data.schoolInfo) await apiPut("/data/schoolInfo", data.schoolInfo);
+        if (data.activities) await apiPut("/data/activities", data.activities);
+        if (data.news) await apiPut("/data/news", data.news);
+        if (data.gallery) await apiPut("/data/gallery", data.gallery);
+        if (data.staff) await apiPut("/data/staff", data.staff);
+        if (data.testimonials) await apiPut("/data/testimonials", data.testimonials);
+        if (data.achievements) await apiPut("/data/achievements", data.achievements);
+        if (data.heroSlides) await apiPut("/data/heroSlides", data.heroSlides);
+        if (Array.isArray(data.submissions)) {
+          await apiPost("/submissions/bulk", { submissions: data.submissions }, true);
+        }
+      };
+
       for (const key of STORAGE_KEYS) {
         if (data[key] !== undefined && data[key] !== null) {
-          localStorage.setItem(`dasbmse:${key}`, JSON.stringify(data[key]));
+          lsSet(key, data[key]);
         }
       }
-      if (data.schoolInfo) setSchoolInfoState(data.schoolInfo);
-      if (data.activities) setActivitiesState(data.activities);
-      if (data.news) setNewsState(data.news);
-      if (data.gallery) setGalleryState(data.gallery);
-      if (data.staff) setStaffState(data.staff);
-      if (data.submissions) setSubmissionsState(data.submissions);
-      if (data.testimonials) setTestimonialsState(data.testimonials);
-      if (data.achievements) setAchievementsState(data.achievements);
-      if (data.heroSlides) setHeroSlidesState(data.heroSlides);
+      if (data.schoolInfo) setSchoolInfoState(data.schoolInfo as SchoolInfo);
+      if (data.activities) setActivitiesState(data.activities as Activity[]);
+      if (data.news) setNewsState(data.news as News[]);
+      if (data.gallery) setGalleryState(data.gallery as GalleryImage[]);
+      if (data.staff) setStaffState(data.staff as StaffMember[]);
+      if (data.submissions) setSubmissionsState(data.submissions as ContactSubmission[]);
+      if (data.testimonials) setTestimonialsState(data.testimonials as Testimonial[]);
+      if (data.achievements) setAchievementsState(data.achievements as Achievement[]);
+      if (data.heroSlides) setHeroSlidesState(data.heroSlides as HeroSlide[]);
+
+      importToApi().catch(() => {});
       toast.success("Backup restored successfully");
       return true;
     } catch (e) {
@@ -386,6 +616,19 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
     setTestimonialsState(defaultTestimonials);
     setAchievementsState(defaultAchievements);
     setHeroSlidesState(defaultHeroSlides);
+
+    const resetApi = async () => {
+      await apiPut("/data/schoolInfo", defaultSchoolInfo);
+      await apiPut("/data/activities", defaultActivities);
+      await apiPut("/data/news", defaultNews);
+      await apiPut("/data/gallery", defaultGallery);
+      await apiPut("/data/staff", defaultStaff);
+      await apiPut("/data/testimonials", defaultTestimonials);
+      await apiPut("/data/achievements", defaultAchievements);
+      await apiPut("/data/heroSlides", defaultHeroSlides);
+      await apiDelete("/submissions");
+    };
+    resetApi().catch(() => {});
     toast.success("All content reset to defaults");
   };
 
@@ -407,7 +650,7 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
     let visits: { path: string; at: string }[] = [];
     try {
       const raw = localStorage.getItem("dasbmse:visits");
-      if (raw) visits = JSON.parse(raw);
+      if (raw) visits = JSON.parse(raw) as { path: string; at: string }[];
     } catch { /* noop */ }
     const perPageMap = new Map<string, number>();
     const dayMap = new Map<string, number>();
@@ -434,18 +677,8 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
     };
   };
 
-  const changePassword = (oldPw: string, newPw: string) => {
-    const credsStr = localStorage.getItem("dasbmse:credentials");
-    if (credsStr) {
-      const creds = JSON.parse(credsStr);
-      if (btoa(oldPw) === creds.passwordHash) {
-        creds.passwordHash = btoa(newPw);
-        localStorage.setItem("dasbmse:credentials", JSON.stringify(creds));
-        toast.success("Password updated successfully");
-        return true;
-      }
-    }
-    toast.error("Incorrect old password");
+  const changePassword = (_oldPw: string, _newPw: string) => {
+    toast.error("Password changes must be made via the server environment settings.");
     return false;
   };
 
@@ -461,7 +694,7 @@ export function SchoolDataProvider({ children }: { children: ReactNode }) {
       achievements, setAchievements,
       heroSlides, setHeroSlides,
       isAuthenticated, login, logout, changePassword,
-      isLoaded,
+      isLoaded, isSyncing,
       exportBackup, importBackup, resetAllData,
       recordVisit, getStats
     }}>

@@ -237,7 +237,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   <MapPin className="w-5 h-5 text-secondary shrink-0 mt-0.5" />
                   <span className="text-primary-foreground/80 text-sm">{schoolInfo?.address}</span>
                 </li>
-                {schoolInfo?.phones.map((phone, idx) => (
+                {schoolInfo?.phones?.map((phone, idx) => (
                   <li key={idx} className="flex items-center gap-3">
                     <Phone className="w-5 h-5 text-secondary shrink-0" />
                     <span className="text-primary-foreground/80 text-sm">{phone}</span>

@@ -36,9 +36,9 @@ export default function AdminLogin() {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof loginSchema>) => {
+  const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     setError("");
-    const success = login(values.password);
+    const success = await login(values.password);
     if (success) {
       setLocation("/admin");
     } else {
